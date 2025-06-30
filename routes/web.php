@@ -59,7 +59,6 @@ Route::post('/kendaraan', [DataKendaraanController::class, 'store'])->name('kend
 // SKOR
 // ===========================
 Route::get('/skor', [SkorController::class, 'index'])->name('skor.index');
-Route::get('/skor/create', [SkorController::class, 'create'])->name('skor.create');
 Route::post('/skor', [SkorController::class, 'store'])->name('skor.store');
 
 // ===========================

@@ -38,8 +38,7 @@ class DataKendaraanController extends Controller
             ]);
         }
 
-        return redirect()->route('skor.create', ['survey' => $request->survey_id])
-            ->with('success', 'Data kendaraan berhasil disimpan. Silakan isi data skor.');
+        return app(\App\Http\Controllers\SkorController::class)->store(new \Illuminate\Http\Request(['survey_id' => $request->survey_id]));
     }
 
     public function destroy(DataKendaraan $kendaraan)

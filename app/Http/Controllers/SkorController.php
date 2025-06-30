@@ -15,51 +15,61 @@ class SkorController extends Controller
     public function store(Request $request)
     {
         $survey_id = $request->survey_id;
-        $survey = Survey::findOrFail($survey_id);
+
+        // Validasi untuk memastikan survey_id ada dan valid
+        $survey = Survey::find($survey_id);
+        if (!$survey) {
+            return redirect()->route('survey.index')->with('error', 'Survey tidak ditemukan!');
+        }
 
         // ====== DATA PEKERJAAN & PENDAPATAN ======
         $dataPekerjaan = DataPekerjaanPendapatan::where('survey_id', $survey_id)->first();
-        $skor_pendapatan = 0;
+        if (!$dataPekerjaan) {
+            return redirect()->route('survey.index')->with('error', 'Data pekerjaan dan pendapatan tidak ditemukan!');
+        }
 
+        $skor_pendapatan = 0;
         // Skor pendapatan, semakin rendah maka semakin LAYAK (skor kecil)
         switch ($dataPekerjaan->pendapatan_id) {
             case 1:
                 $skor_pendapatan = 5;
-                break; // <=500k
+                break;
             case 2:
                 $skor_pendapatan = 10;
-                break; // 500k-1jt
+                break;
             case 3:
                 $skor_pendapatan = 20;
-                break; // 1jt-2jt
+                break;
             case 4:
                 $skor_pendapatan = 30;
-                break; // 2jt-3.5jt
+                break;
             case 5:
                 $skor_pendapatan = 40;
-                break; // 3.5jt-5jt
+                break;
             case 6:
                 $skor_pendapatan = 50;
-                break; // 5jt-7.5jt
+                break;
             case 7:
                 $skor_pendapatan = 70;
-                break; // 7.5jt-10jt
+                break;
             case 8:
                 $skor_pendapatan = 80;
-                break; // 10jt-15jt
+                break;
             case 9:
                 $skor_pendapatan = 90;
-                break; // 15jt-20jt
+                break;
             case 10:
                 $skor_pendapatan = 100;
-                break; // >20jt
+                break;
         }
 
         // ====== DATA KELUARGA ======
         $dataKeluarga = DataKeluarga::where('survey_id', $survey_id)->first();
-        $skor_keluarga = 0;
+        if (!$dataKeluarga) {
+            return redirect()->route('survey.index')->with('error', 'Data keluarga tidak ditemukan!');
+        }
 
-        // Skor jumlah tanggungan, semakin banyak tanggungan maka skor semakin RENDAH (lebih layak)
+        $skor_keluarga = 0;
         if ($dataKeluarga->jumlah_tanggungan >= 5) {
             $skor_keluarga = 5;
         } elseif ($dataKeluarga->jumlah_tanggungan >= 3) {
@@ -79,9 +89,12 @@ class SkorController extends Controller
 
         // ====== DATA RUMAH ======
         $dataRumah = DataRumah::where('survey_id', $survey_id)->first();
+        if (!$dataRumah) {
+            return redirect()->route('survey.index')->with('error', 'Data rumah tidak ditemukan!');
+        }
+
         $skor_rumah = 0;
 
-        // Status rumah
         if ($dataRumah->status_rumah_id == 1) { // milik sendiri
             $skor_rumah += 30;
         } elseif ($dataRumah->status_rumah_id == 2 || $dataRumah->status_rumah_id == 3) { // menumpang ortu / saudara
@@ -90,14 +103,12 @@ class SkorController extends Controller
             $skor_rumah += 20;
         }
 
-        // Jenis rumah
         if ($dataRumah->jenis_rumah_id == 1) { // permanen
             $skor_rumah += 20;
         } else {
             $skor_rumah += 10;
         }
 
-        // Kondisi rumah
         if ($dataRumah->kondisi_rumah_id == 1) { // baik
             $skor_rumah += 20;
         } elseif ($dataRumah->kondisi_rumah_id == 2) { // rusak sebagian
@@ -106,7 +117,6 @@ class SkorController extends Controller
             $skor_rumah += 5;
         }
 
-        // Luas rumah
         if ($dataRumah->luas_rumah < 50) {
             $skor_rumah += 5;
         } elseif ($dataRumah->luas_rumah <= 100) {
@@ -119,6 +129,10 @@ class SkorController extends Controller
 
         // ====== DATA KENDARAAN ======
         $dataKendaraan = DataKendaraan::where('survey_id', $survey_id)->get();
+        if ($dataKendaraan->isEmpty()) {
+            return redirect()->route('survey.index')->with('error', 'Data kendaraan tidak ditemukan!');
+        }
+
         $skor_kendaraan = 0;
 
         foreach ($dataKendaraan as $dk) {
@@ -131,7 +145,6 @@ class SkorController extends Controller
             }
         }
 
-        // Jika total motor+sepeda lebih dari 4 dianggap tidak layak (tambah skor tinggi)
         $total_kendaraan_ringan = $dataKendaraan->whereIn('jenis_kendaraan_id', [2, 3])->sum('jumlah_kendaraan');
         if ($total_kendaraan_ringan > 4) {
             $skor_kendaraan += 30;
@@ -140,10 +153,8 @@ class SkorController extends Controller
         if ($skor_kendaraan > 100) $skor_kendaraan = 100;
 
         // ====== TOTAL SKOR ======
-        // Bobot: pendapatan(40%), keluarga(20%), rumah(20%), kendaraan(20%)
         $total_skor = ($skor_pendapatan * 0.4) + ($skor_keluarga * 0.2) + ($skor_rumah * 0.2) + ($skor_kendaraan * 0.2);
 
-        // HASIL
         $hasil_skor = number_format($total_skor, 2);
         $kelayakan = ($total_skor <= 50) ? 'Layak' : 'Tidak Layak';
 
@@ -159,5 +170,10 @@ class SkorController extends Controller
         ]);
 
         return redirect()->route('dashboard.index')->with('success', 'Data survey berhasil disimpan');
+    }
+    public function index()
+    {
+        $skors = \App\Models\Skor::with('survey')->get();
+        return view('skor.index', compact('skors'));
     }
 }
